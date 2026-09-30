@@ -88,6 +88,18 @@ app.get(
 );
 
 app.get(
+  "/api/health",
+  (_req, res) => {
+    res.json({
+      success: true,
+      service:
+        "food-stall-pos-api",
+      status: "healthy",
+    });
+  },
+);
+
+app.get(
   "/health/db",
   async (_req, res) => {
     try {

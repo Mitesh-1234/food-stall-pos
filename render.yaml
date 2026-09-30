@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: food-stall-pos-server
+    runtime: node
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PIN_LOOKUP_SECRET
+        sync: false
