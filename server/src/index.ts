@@ -296,11 +296,21 @@ app.use(
   usersRouter,
 );
 
-app.listen(
-  PORT,
-  () => {
-    console.log(
-      `Food Stall POS API running on http://localhost:${PORT}`,
-    );
-  },
-);
+/*
+ * In local development, start the HTTP server
+ * directly. On Vercel (serverless), the platform
+ * invokes the exported `app` handler — no listen
+ * needed there.
+ */
+if (!process.env.VERCEL) {
+  app.listen(
+    PORT,
+    () => {
+      console.log(
+        `Food Stall POS API running on http://localhost:${PORT}`,
+      );
+    },
+  );
+}
+
+export default app;
