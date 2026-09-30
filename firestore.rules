@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function activeUser() {
+      return signedIn()
+        && userDoc().data.isActive == true;
+    }
+
+    function hasPermission(permission) {
+      return activeUser()
+        && permission in userDoc().data.permissionCodes;
+    }
+
+    // Realtime read access. Mutation is deliberately blocked here;
+    // trusted Cloud Functions perform business mutations.
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if signedIn()
+        && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /categories/{id} {
+      allow read: if activeUser();
+      allow write: if false;
+    }
+
+    match /items/{id} {
+      allow read: if activeUser();
+      allow write: if false;
+    }
+
+    match /addons/{id} {
+      allow read: if activeUser();
+      allow write: if false;
+    }
+
+    match /orders/{orderId} {
+      allow read: if hasPermission("VIEW_ORDERS")
+        || hasPermission("CREATE_ORDER")
+        || hasPermission("EDIT_ORDER")
+        || hasPermission("CANCEL_ORDER")
+        || hasPermission("MARK_READY")
+        || hasPermission("MARK_DELIVERED")
+        || hasPermission("VIEW_SALES")
+        || hasPermission("VIEW_REPORTS");
+
+      allow write: if false;
+
+      match /items/{itemId} {
+        allow read: if hasPermission("VIEW_ORDERS")
+          || hasPermission("CREATE_ORDER")
+          || hasPermission("EDIT_ORDER")
+          || hasPermission("MARK_READY")
+          || hasPermission("MARK_DELIVERED");
+        allow write: if false;
+      }
+
+      match /payments/{paymentId} {
+        allow read: if hasPermission("VIEW_ORDERS")
+          || hasPermission("VIEW_SALES")
+          || hasPermission("VIEW_REPORTS");
+        allow write: if false;
+      }
+
+      match /cancellations/{id} {
+        allow read: if hasPermission("VIEW_ORDERS")
+          || hasPermission("VIEW_SALES")
+          || hasPermission("VIEW_REPORTS");
+        allow write: if false;
+      }
+
+      match /refunds/{id} {
+        allow read: if hasPermission("VIEW_ORDERS")
+          || hasPermission("VIEW_SALES")
+          || hasPermission("VIEW_REPORTS");
+        allow write: if false;
+      }
+    }
+
+    match /dayClosings/{businessDate} {
+      allow read: if hasPermission("DAY_CLOSING")
+        || hasPermission("VIEW_REPORTS");
+      allow write: if false;
+    }
+
+    match /dailySummaries/{businessDate} {
+      allow read: if hasPermission("VIEW_SALES")
+        || hasPermission("VIEW_REPORTS");
+      allow write: if false;
+    }
+
+    match /activityLogs/{logId} {
+      allow read: if hasPermission("VIEW_ACTIVITY_LOGS");
+      allow write: if false;
+    }
+
+    match /config/{id} {
+      allow read: if activeUser();
+      allow write: if false;
+    }
+  }
+}

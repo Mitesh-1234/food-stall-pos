@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /payment-proofs/{orderId}/{paymentId}/{fileName} {
+      allow read: if request.auth != null;
+      // Uploads are performed by trusted backend functions.
+      allow write: if false;
+    }
+  }
+}
