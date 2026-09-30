@@ -31,26 +31,43 @@ const PORT = Number(
 );
 
 /*
- * In production the ALLOWED_ORIGIN environment
- * variable should be set to the Vercel frontend
- * URL (e.g. https://your-app.vercel.app).
- *
- * In development all origins are allowed so that
- * localhost:3000 can reach localhost:4000.
+ * CORS — allow all origins.
+ * Security is enforced by JWT token on every
+ * protected route, not by origin restriction.
  */
-const allowedOrigin =
-  process.env.ALLOWED_ORIGIN;
-
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV ===
-      "production"
-        ? allowedOrigin ?? true
-        : true,
+    origin: true,
+    credentials: true,
+    methods: [
+      "GET",
+      "POST",
+      "PATCH",
+      "PUT",
+      "DELETE",
+      "OPTIONS",
+    ],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
+  }),
+);
+
+/*
+ * Explicitly respond to OPTIONS preflight so
+ * Vercel's serverless routing never redirects
+ * a preflight request (which breaks CORS).
+ */
+app.options(
+  "*",
+  cors({
+    origin: true,
     credentials: true,
   }),
 );
+
+
 
 app.use(
   express.json({
