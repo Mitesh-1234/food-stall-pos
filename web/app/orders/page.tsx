@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 
@@ -595,11 +595,33 @@ export default function OrdersPage() {
     );
 
     loadOrders();
+    /*
+     * SSE — instant push from server when any order changes.
+     * The polling interval above is only a safety net.
+     */
+    let es: EventSource | null = null;
 
-    const interval =
-      window.setInterval(
+    if (token) {
+      function connectSSE() {
+        const url = new URL(`${API_BASE_URL}/api/realtime/orders`);
+        url.searchParams.set("token", token ?? "");
+        es = new EventSource(url.toString());
+        const refresh = () => { loadOrders(); };
+        es.addEventListener("order-updated", refresh);
+        es.addEventListener("order-created", refresh);
+        es.addEventListener("order-status",  refresh);
+        es.addEventListener("message",       refresh);
+        es.onerror = () => {
+          es?.close();
+          setTimeout(connectSSE, 3000);
+        };
+      }
+      connectSSE();
+    }
+
+    const interval =      window.setInterval(
         loadOrders,
-        1000,
+        5000,
       );
 
     const handleVisibility =
@@ -940,22 +962,28 @@ export default function OrdersPage() {
 
   function getCurrentOrderValue(
     order: Order,
+    detail?: any,
   ) {
-    const gross =
-      getNumber(
-        order.total,
-      );
+    // Use getItems() to handle all data shapes (items/order_items/orderItems)
+    const items = getItems(detail as OrderDetail | undefined);
 
-    const refunded =
-      getNumber(
-        (order as any)
-          .refund_total,
-      );
+    if (items.length > 0) {
+      // Sum only non-cancelled items — actual remaining value
+      return items.reduce((sum: number, item: any) => {
+        const status = String(
+          item.status ?? item.item_status ?? "ACTIVE",
+        ).toUpperCase();
+        if (status === "CANCELLED") return sum;
+        return sum + getNumber(
+          item.item_total ?? item.itemTotal ?? item.total,
+        );
+      }, 0);
+    }
 
-    return Math.max(
-      0,
-      gross - refunded,
-    );
+    // Fallback: order.total minus refunds (when detail not yet loaded)
+    const gross = getNumber(order.total);
+    const refunded = getNumber((order as any).refund_total);
+    return Math.max(0, gross - refunded);
   }
 
   function canEditOrder(
@@ -3176,7 +3204,7 @@ export default function OrdersPage() {
                           styles.itemRefundValue
                         }
                       >
-                        Refund value:{" "}
+                        Item value:{" "}
                         {money(
                           refundAmount,
                         )}
@@ -3966,6 +3994,7 @@ export default function OrdersPage() {
                     const currentValue =
                       getCurrentOrderValue(
                         order,
+                        orderDetails[order.id],
                       );
 
                     return (

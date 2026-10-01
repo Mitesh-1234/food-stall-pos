@@ -12,17 +12,22 @@ const router = Router();
 
 router.get("/orders", async (req, res) => {
   try {
+    // EventSource (SSE) cannot send custom headers,
+    // so accept token from Authorization header OR ?token= query param
     const authHeader = req.headers.authorization;
+    const queryToken = req.query.token as string | undefined;
 
-    if (!authHeader?.startsWith("Bearer ")) {
+    const rawToken = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice("Bearer ".length).trim()
+      : (queryToken ?? "").trim();
+
+    if (!rawToken) {
       return res.status(401).json({
         error: "Authentication required",
       });
     }
 
-    const token = authHeader.slice("Bearer ".length).trim();
-
-    const user = await authenticateSession(token);
+    const user = await authenticateSession(rawToken);
 
     res.status(200);
 

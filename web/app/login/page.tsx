@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { setAuthSession } from "../../lib/auth-storage";
 
 const API_BASE_URL =
@@ -12,9 +12,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function login() {
-    if (pin.length !== 6) {
-      setError("Enter your 6-digit PIN.");
+  // Refs so keyboard handler sees latest values without re-registering
+  const pinRef = useRef("");
+  const loadingRef = useRef(false);
+  useEffect(() => { pinRef.current = pin; }, [pin]);
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
+
+  const loginWithPin = useCallback(async (currentPin: string) => {
+    if (currentPin.length !== 6 || loadingRef.current) {
       return;
     }
 
@@ -30,7 +35,7 @@ export default function LoginPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            pin,
+            pin: currentPin,
           }),
         },
       );
@@ -61,10 +66,10 @@ export default function LoginPage() {
       });
 
       /*
-       * Only redirect after the authentication session
-       * has been successfully stored.
+       * Skip /session-start - session is already stored from login.
+       * Go directly to /orders to save one full round-trip.
        */
-      window.location.href = "/session-start";
+      window.location.replace("/orders");
     } catch (err) {
       setError(
         err instanceof Error
@@ -76,18 +81,25 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   function addDigit(digit: string) {
-    if (loading || pin.length >= 6) {
+    if (loadingRef.current || pinRef.current.length >= 6) {
       return;
     }
 
-    setPin((current) => current + digit);
+    const next = pinRef.current + digit;
+    pinRef.current = next;
+    setPin(next);
+
+    // Auto-submit on 6th digit - no need to tap LOGIN
+    if (next.length === 6) {
+      loginWithPin(next);
+    }
   }
 
   function removeDigit() {
-    if (loading) {
+    if (loadingRef.current) {
       return;
     }
 
@@ -95,6 +107,19 @@ export default function LoginPage() {
       current.slice(0, -1),
     );
   }
+
+  // Physical keyboard support
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key >= "0" && e.key <= "9") addDigit(e.key);
+      else if (e.key === "Backspace") removeDigit();
+      else if (e.key === "Enter") loginWithPin(pinRef.current);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loginWithPin]);
 
   return (
     <main
@@ -213,7 +238,7 @@ export default function LoginPage() {
               background: "#f9fafb",
             }}
           >
-            ←
+            ⌫
           </button>
 
           <button
@@ -236,7 +261,7 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={login}
+            onClick={() => loginWithPin(pin)}
             disabled={
               loading ||
               pin.length !== 6

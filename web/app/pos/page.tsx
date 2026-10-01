@@ -781,6 +781,13 @@ export default function POSPage() {
       );
 
       clearOrder();
+
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }, 60);
+      }
     } catch (err) {
       setError(
         err instanceof Error

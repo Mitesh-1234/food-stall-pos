@@ -18,4 +18,10 @@ export const pool = new Pool({
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10_000,
+});
+
+pool.on("error", (err) => {
+  console.error("Unexpected error on idle PostgreSQL client:", err?.message || err);
 });
